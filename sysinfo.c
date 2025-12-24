@@ -123,9 +123,25 @@ static const char *video_name(long vdo) {
     }
 }
 
+static void clear_screen(void) {
+    (void)Cconws("\033E");
+    (void)Cconws("\033b0");
+    (void)Cconws("\033c7");
+}
+
+static int floppy_has_media(int drive) {
+    int media = Mediach(drive);
+
+    if (media == 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
 static int should_query_drive(int drive) {
     if (drive == 0 || drive == 1) {
-        return 0;
+        return floppy_has_media(drive);
     }
 
     return 1;
@@ -145,8 +161,7 @@ static void print_drive_info(long drive_mask) {
     for (drive = 0; drive < 32; drive++) {
         if (drive_mask & (1L << drive)) {
             if (!should_query_drive(drive)) {
-                printf("  %c: (disquete) omitido para evitar peticion de disco\n",
-                       'A' + drive);
+                printf("  %c: sin disquete, omitido\n", 'A' + drive);
                 continue;
             }
 
@@ -209,6 +224,7 @@ int main(void) {
     long drives;
     long value;
 
+    clear_screen();
     mem_free = (long)Malloc(-1);
     tosver = (unsigned int)Sversion();
     drives = Drvmap();
