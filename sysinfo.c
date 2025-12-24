@@ -50,7 +50,26 @@ static int bcd_to_int(int bcd) {
 }
 
 static const char *cpu_name(long cpu) {
-    switch (cpu & 0xff) {
+    long cpu_id = cpu & 0xff;
+
+    switch (cpu) {
+    case 0:
+        return "68000";
+    case 10:
+        return "68010";
+    case 20:
+        return "68020";
+    case 30:
+        return "68030";
+    case 40:
+        return "68040";
+    case 60:
+        return "68060";
+    default:
+        break;
+    }
+
+    switch (cpu_id) {
     case 0x00:
         return "68000";
     case 0x10:
@@ -69,7 +88,13 @@ static const char *cpu_name(long cpu) {
 }
 
 static const char *machine_name(long mch) {
-    switch (mch & 0xffff) {
+    long mch_id = mch & 0xffff;
+
+    if (mch_id == 0) {
+        mch_id = (mch >> 16) & 0xffff;
+    }
+
+    switch (mch_id) {
     case 0x0000:
         return "Atari ST";
     case 0x0001:
@@ -98,6 +123,14 @@ static const char *video_name(long vdo) {
     }
 }
 
+static int should_query_drive(int drive) {
+    if (drive == 0 || drive == 1) {
+        return 0;
+    }
+
+    return 1;
+}
+
 static void print_drive_info(long drive_mask) {
     int drive;
     struct diskfree {
@@ -111,6 +144,12 @@ static void print_drive_info(long drive_mask) {
 
     for (drive = 0; drive < 32; drive++) {
         if (drive_mask & (1L << drive)) {
+            if (!should_query_drive(drive)) {
+                printf("  %c: (disquete) omitido para evitar peticion de disco\n",
+                       'A' + drive);
+                continue;
+            }
+
             long result = Dfree((void *)&info, drive + 1);
 
             if (result == 0) {
@@ -176,7 +215,7 @@ int main(void) {
 
     printf("Sysinfo Atari ST (Falcon 030 esperado)\n");
     printf("Memoria libre: %ld bytes\n", mem_free);
-    printf("TOS: %d.%02d (0x%04x)\n",
+    printf("GEMDOS (Sversion): %d.%02d (0x%04x)\n",
            bcd_to_int((tosver >> 8) & 0xff),
            bcd_to_int(tosver & 0xff),
            tosver & 0xffff);
