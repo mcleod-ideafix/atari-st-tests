@@ -2,10 +2,23 @@
 #include <stdio.h>
 #include <tos.h>
 
+#ifdef evnt_multi
+#undef evnt_multi
+#endif
+int evnt_multi(int ev_mflags, int ev_mbclicks, int ev_bmask, int ev_bstate,
+               int ev_mm1flags, int ev_mm1x, int ev_mm1y, int ev_mm1width,
+               int ev_mm1height, int ev_mm2flags, int ev_mm2x, int ev_mm2y,
+               int ev_mm2width, int ev_mm2height, int *ev_mmgpbuff,
+               int *ev_mmox, int *ev_mmoy, int *ev_mmbutton, int *ev_mmokstate,
+               int *ev_mkreturn, int *ev_mbreturn);
+
 #define COOKIE(a, b, c, d) \
     ((long)(a) << 24 | (long)(b) << 16 | (long)(c) << 8 | (long)(d))
 
-static int get_cookie(long tag, long *value) {
+static long cookie_tag;
+static long *cookie_value;
+
+static long cookie_reader(void) {
     volatile long *jar = *(volatile long **)0x5a0;
 
     if (jar == 0) {
@@ -13,9 +26,9 @@ static int get_cookie(long tag, long *value) {
     }
 
     while (jar[0] != 0) {
-        if (jar[0] == tag) {
-            if (value != 0) {
-                *value = jar[1];
+        if (jar[0] == cookie_tag) {
+            if (cookie_value != 0) {
+                *cookie_value = jar[1];
             }
             return 1;
         }
@@ -23,6 +36,17 @@ static int get_cookie(long tag, long *value) {
     }
 
     return 0;
+}
+
+static int get_cookie(long tag, long *value) {
+    cookie_tag = tag;
+    cookie_value = value;
+
+    return (int)Supexec(cookie_reader);
+}
+
+static int bcd_to_int(int bcd) {
+    return ((bcd >> 4) & 0x0f) * 10 + (bcd & 0x0f);
 }
 
 static const char *cpu_name(long cpu) {
@@ -76,13 +100,18 @@ static const char *video_name(long vdo) {
 
 static void print_drive_info(long drive_mask) {
     int drive;
+    struct diskfree {
+        long b_free;
+        long b_total;
+        long b_secsize;
+        long b_clsiz;
+    } info;
 
     printf("Unidades disponibles:\n");
 
     for (drive = 0; drive < 32; drive++) {
         if (drive_mask & (1L << drive)) {
-            struct _diskfree info;
-            long result = Dfree(&info, drive + 1);
+            long result = Dfree((void *)&info, drive + 1);
 
             if (result == 0) {
                 unsigned long total = info.b_total * info.b_secsize * info.b_clsiz;
@@ -137,17 +166,20 @@ static void wait_for_exit(void) {
 
 int main(void) {
     long mem_free;
-    int tosver;
+    unsigned int tosver;
     long drives;
     long value;
 
-    mem_free = Malloc(-1);
-    tosver = Sversion();
+    mem_free = (long)Malloc(-1);
+    tosver = (unsigned int)Sversion();
     drives = Drvmap();
 
     printf("Sysinfo Atari ST (Falcon 030 esperado)\n");
     printf("Memoria libre: %ld bytes\n", mem_free);
-    printf("TOS: %d.%02d\n", (tosver >> 8) & 0xff, tosver & 0xff);
+    printf("TOS: %d.%02d (0x%04x)\n",
+           bcd_to_int((tosver >> 8) & 0xff),
+           bcd_to_int(tosver & 0xff),
+           tosver & 0xffff);
 
     if (get_cookie(COOKIE('_', 'C', 'P', 'U'), &value)) {
         printf("CPU: %s (0x%08lx)\n", cpu_name(value), value);
