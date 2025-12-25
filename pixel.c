@@ -1,8 +1,5 @@
 #include <tos.h>
 
-#define MODE_FALCON_320x240x16 0x0010
-#define MODE_ST_320x200x16 0x0000
-#define PAL_MASK 0x0002
 #define WIDTH 320
 
 static void set_gray_palette(void) {
@@ -34,32 +31,37 @@ static void plot_pixel(unsigned char *screen, int width, int x, int y,
     screen[byte_index] = value;
 }
 
-static int is_vga_monitor(int monitor_type) {
-    return monitor_type == 2;
+static int mode_to_bpp(int mode) {
+    switch (mode & 0x07) {
+    case 0:
+        return 1;
+    case 1:
+        return 2;
+    case 2:
+        return 4;
+    case 3:
+        return 8;
+    case 4:
+        return 16;
+    default:
+        return 0;
+    }
 }
 
-static int set_graphics_mode(int *height_out) {
-    int monitor = VgetMonitor();
-    int old_mode = VsetMode(-1);
-    int pal_bits = old_mode & PAL_MASK;
-    int mode = MODE_FALCON_320x240x16 | pal_bits;
+static int get_screen_geometry(int *width_out, int *height_out, int *bpp_out) {
+    int mode = VsetMode(-1);
+    long line_bytes = VsetLine(-1);
+    long screen_bytes = VgetSize(-1);
+    int bpp = mode_to_bpp(mode);
 
-    VsetMode(mode);
-
-    if (is_vga_monitor(VgetMonitor())) {
-        VsetMode(MODE_ST_320x200x16 | pal_bits);
-        *height_out = 200;
-        return MODE_ST_320x200x16 | pal_bits;
+    if (bpp <= 0 || line_bytes <= 0 || screen_bytes <= 0) {
+        return 0;
     }
 
-    if (monitor != VgetMonitor()) {
-        VsetMode(MODE_ST_320x200x16 | pal_bits);
-        *height_out = 200;
-        return MODE_ST_320x200x16 | pal_bits;
-    }
-
-    *height_out = 240;
-    return mode;
+    *bpp_out = bpp;
+    *width_out = (int)((line_bytes * 8L) / bpp);
+    *height_out = (int)(screen_bytes / line_bytes);
+    return 1;
 }
 
 int main(void) {
@@ -68,26 +70,47 @@ int main(void) {
     int x;
     int y;
     unsigned char color;
-    int old_mode;
     int height;
+    int width;
+    int bpp;
 
-    old_mode = VsetMode(-1);
-    set_graphics_mode(&height);
+    if (!get_screen_geometry(&width, &height, &bpp)) {
+        (void)Cconws("No se pudo determinar la geometria de pantalla.\r\n");
+        return 1;
+    }
+
+    (void)Cconws("Modo actual detectado:\r\n");
+    Cconout('0' + (width / 100) % 10);
+    Cconout('0' + (width / 10) % 10);
+    Cconout('0' + (width % 10));
+    (void)Cconws("x");
+    Cconout('0' + (height / 100) % 10);
+    Cconout('0' + (height / 10) % 10);
+    Cconout('0' + (height % 10));
+    (void)Cconws(" ");
+    Cconout('0' + (bpp / 10) % 10);
+    Cconout('0' + (bpp % 10));
+    (void)Cconws("bpp\r\n");
+
+    if (bpp != 4) {
+        (void)Cconws("Este demo requiere 16 colores (4 bpp).\r\n");
+        (void)Cconws("Cambia a un modo de 16 colores y vuelve a ejecutar.\r\n");
+        return 1;
+    }
+
     set_gray_palette();
 
     screen = (unsigned char *)Physbase();
 
     for (i = 0; i < 20000; i++) {
-        x = (int)(Random() % WIDTH);
+        x = (int)(Random() % width);
         y = (int)(Random() % height);
         color = (unsigned char)(Random() & 0x0F);
-        plot_pixel(screen, WIDTH, x, y, color);
+        plot_pixel(screen, width, x, y, color);
     }
 
     (void)Cconws("Pulsa una tecla para salir...\r\n");
     (void)Cconin();
-
-    VsetMode(old_mode);
 
     return 0;
 }
