@@ -1,3 +1,7 @@
+/* Compilar con VBCC:
+vc +tos16 -O2 -o mandel.prg mandel.c -lgem16 -lm
+*/
+
 #include <stdio.h>
 #include <tos.h>
 #include <stdlib.h>
@@ -298,7 +302,6 @@ int main(void)
 
     tfin = Tickcal();
     
-    printf ("Tiempo: %ld seg.", (tfin-tcom)/1000);
     Cconin();
 
     /* Restaurar modo y pantalla originales */
@@ -306,6 +309,9 @@ int main(void)
     Setscreen(old_log, old_phys, old_rez);
 
     Mfree(screen);
+
+    printf ("Tiempo: %ld seg.", (tfin-tcom)/1000);
+    Cconin();
 
     return 0;
 }
