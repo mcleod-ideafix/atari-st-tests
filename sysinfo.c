@@ -229,8 +229,8 @@ int main(void) {
     tosver = (unsigned int)Sversion();
     drives = Drvmap();
 
-    printf("Sysinfo Atari ST\n");
-    printf("Memoria libre: %ld KB\n", mem_free/1024);
+    printf("Sysinfo Atari ST (Falcon 030 esperado)\n");
+    printf("Memoria libre: %ld bytes\n", mem_free);
     printf("GEMDOS (Sversion): %d.%02d (0x%04x)\n",
            bcd_to_int((tosver >> 8) & 0xff),
            bcd_to_int(tosver & 0xff),
