@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <tos.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -231,6 +232,8 @@ static void mandel (void)
 /* Programa principal */
 int main(void)
 {
+    int32_t tcom, tfin;
+    
     /* Estado antiguo para restaurar */
     int16_t  old_mode;
     int16_t  old_rez;
@@ -287,10 +290,15 @@ int main(void)
 
     memset(screen, 0, new_size);
 
+    tcom = Tickcal();
+    
     /* Elegir una de las dos versiones */
     mandel_recursivo();
     /* o bien: mandel(); */
 
+    tfin = Tickcal();
+    
+    printf ("Tiempo: %ld seg.", (tfin-tcom)/1000);
     Cconin();
 
     /* Restaurar modo y pantalla originales */
